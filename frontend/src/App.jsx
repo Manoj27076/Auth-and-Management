@@ -8,7 +8,8 @@ import AuthCallbackPage from './pages/AuthCallbackPage'
 import VerifyEmailPage  from './pages/VerifyEmailPage'
 import ProfilePage      from './pages/ProfilePage'
 import EditProfilePage  from './pages/EditProfilePage'
-import AdminPage        from './pages/AdminPage'
+import AdminPage          from './pages/AdminPage'
+import DomainDashboardPage from './pages/DomainDashboardPage'
 
 export default function App() {
   return (
@@ -60,7 +61,16 @@ export default function App() {
             }
           />
 
-          {/* Catch-all */}
+
+          {/* Domain dashboard — accessible to admins and domain leads */}
+          <Route
+            path="/domain/:domainId/dashboard"
+            element={
+              <ProtectedRoute requireVerified>
+                <DomainDashboardPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </AuthProvider>

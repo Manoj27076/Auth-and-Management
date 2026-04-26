@@ -1,15 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/axios'
 import RoleBadge from '../components/RoleBadge'
 import LoadingSpinner from '../components/LoadingSpinner'
 import {
   Users, Globe, BarChart3, Search, ChevronLeft, ChevronRight,
-  ShieldCheck, ShieldOff, UserCheck, UserX, Plus, Trash2
+  ShieldCheck, UserX, Plus, Trash2, UserCheck
 } from 'lucide-react'
 import './AdminPage.css'
-
-const ROLES = ['admin', 'domain_lead', 'club_member']
 
 export default function AdminPage() {
   const { user: currentUser } = useAuth()
@@ -147,8 +146,6 @@ function UsersPanel() {
   const [page,      setPage]      = useState(1)
   const [totalPages,setTotalPages]= useState(1)
   const [total,     setTotal]     = useState(0)
-  const [actionUser,setActionUser]= useState(null)  // user being modified
-  const [roleModal, setRoleModal] = useState(false)
 
   // Debounce search
   useEffect(() => {
@@ -172,14 +169,21 @@ function UsersPanel() {
   useEffect(() => { fetchUsers() }, [fetchUsers])
   useEffect(() => { setPage(1) }, [debouncedSearch])
 
-  const toggleActive = async (u) => {
+  const makeAdmin = async (u) => {
+    if (!window.confirm(`Grant Admin role to ${u.name}?`)) return
     try {
-      await api.post(`/admin/users/${u.id}/toggle-active`)
+      await api.post(`/admin/users/${u.id}/role`, { role: 'admin', action: 'add' })
       fetchUsers()
-    } catch (e) { console.error(e) }
+    } catch (e) { alert(e.response?.data?.error || 'Failed to grant admin') }
   }
 
-  const openRoleModal = (u) => { setActionUser(u); setRoleModal(true) }
+  const deleteUser = async (u) => {
+    if (!window.confirm(`Permanently delete account for ${u.name}? This cannot be undone.`)) return
+    try {
+      await api.delete(`/admin/users/${u.id}`)
+      fetchUsers()
+    } catch (e) { alert(e.response?.data?.error || 'Failed to delete user') }
+  }
 
   return (
     <div className="users-panel">
@@ -247,21 +251,21 @@ function UsersPanel() {
                   </td>
                   <td>
                     <div className="action-btns">
+                      {!u.roles.includes('admin') && (
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => makeAdmin(u)}
+                          title="Make Admin"
+                        >
+                          <ShieldCheck size={14} /> Admin
+                        </button>
+                      )}
                       <button
-                        id={`role-btn-${u.id}`}
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => openRoleModal(u)}
-                        title="Manage roles"
+                        className="btn btn-danger btn-sm"
+                        onClick={() => deleteUser(u)}
+                        title="Remove Account completely"
                       >
-                        <ShieldCheck size={14} />
-                      </button>
-                      <button
-                        id={`toggle-btn-${u.id}`}
-                        className={`btn btn-sm ${u.is_active ? 'btn-danger' : 'btn-secondary'}`}
-                        onClick={() => toggleActive(u)}
-                        title={u.is_active ? 'Deactivate' : 'Activate'}
-                      >
-                        {u.is_active ? <UserX size={14}/> : <UserCheck size={14}/>}
+                        <UserX size={14}/> Remove
                       </button>
                     </div>
                   </td>
@@ -292,62 +296,6 @@ function UsersPanel() {
           </div>
         )}
       </div>
-
-      {/* Role management modal */}
-      {roleModal && actionUser && (
-        <RoleModal
-          user={actionUser}
-          onClose={() => { setRoleModal(false); setActionUser(null); fetchUsers() }}
-        />
-      )}
-    </div>
-  )
-}
-
-function RoleModal({ user, onClose }) {
-  const [loading, setLoading] = useState(false)
-
-  const handleRole = async (role, action) => {
-    setLoading(true)
-    try {
-      await api.post(`/admin/users/${user.id}/role`, { role, action })
-      onClose()
-    } catch (e) { console.error(e) }
-    finally { setLoading(false) }
-  }
-
-  return (
-    <div className="modal-overlay" onClick={onClose} id="role-modal-overlay">
-      <div className="modal-box glass-card" onClick={e => e.stopPropagation()}>
-        <h3>Manage Roles</h3>
-        <p style={{ color:'var(--text-muted)', fontSize:'0.88rem', margin:'8px 0 20px' }}>
-          <strong style={{ color:'var(--text-primary)' }}>{user.name}</strong> — {user.email}
-        </p>
-        <div className="role-modal-grid">
-          {ROLES.map(role => {
-            const has = user.roles.includes(role)
-            return (
-              <div key={role} className="role-modal-row">
-                <RoleBadge roles={[role]} size="md" />
-                <button
-                  id={`role-action-${role}`}
-                  className={`btn btn-sm ${has ? 'btn-danger' : 'btn-primary'}`}
-                  onClick={() => handleRole(role, has ? 'remove' : 'add')}
-                  disabled={loading}
-                >
-                  {has
-                    ? <><ShieldOff size={13}/> Remove</>
-                    : <><ShieldCheck size={13}/> Grant</>
-                  }
-                </button>
-              </div>
-            )
-          })}
-        </div>
-        <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ marginTop:16, width:'100%' }}>
-          Close
-        </button>
-      </div>
     </div>
   )
 }
@@ -359,7 +307,7 @@ function DomainsPanel() {
   const [domains,  setDomains]  = useState([])
   const [loading,  setLoading]  = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [form,     setForm]     = useState({ name:'', slug:'', description:'', icon:'🔧' })
+  const [form,     setForm]     = useState({ name:'', description:'', icon:'🔧' })
   const [saving,   setSaving]   = useState(false)
   const [error,    setError]    = useState('')
 
@@ -380,7 +328,7 @@ function DomainsPanel() {
     setSaving(true)
     try {
       await api.post('/admin/domains', form)
-      setForm({ name:'', slug:'', description:'', icon:'🔧' })
+      setForm({ name:'', description:'', icon:'🔧' })
       setShowForm(false)
       fetchDomains()
     } catch (err) {
@@ -394,6 +342,17 @@ function DomainsPanel() {
       await api.delete(`/admin/domains/${id}`)
       fetchDomains()
     } catch { /* handled */ }
+  }
+
+  const handleSetLead = async (id, currentLead) => {
+    const email = window.prompt(`Enter exact email of the new lead for this domain.\nLeave blank to remove current lead (${currentLead || 'None'}):`)
+    if (email === null) return // cancelled
+    try {
+      await api.post(`/admin/domains/${id}/lead`, { email: email.trim() })
+      fetchDomains()
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to update domain lead.')
+    }
   }
 
   return (
@@ -420,18 +379,12 @@ function DomainsPanel() {
                 <input className="input-field" value={form.icon}
                   onChange={e => setForm({...form, icon:e.target.value})} maxLength={4} />
               </div>
-              <div className="input-group">
+              <div className="input-group" style={{ gridColumn:'span 2' }}>
                 <label className="input-label">Name *</label>
                 <input className="input-field" value={form.name} required
                   onChange={e => setForm({...form, name:e.target.value})} placeholder="Web Development" />
               </div>
-              <div className="input-group">
-                <label className="input-label">Slug *</label>
-                <input className="input-field" value={form.slug} required
-                  onChange={e => setForm({...form, slug:e.target.value.toLowerCase().replace(/\s+/g,'-')})}
-                  placeholder="web-dev" />
-              </div>
-              <div className="input-group" style={{ gridColumn:'span 3' }}>
+              <div className="input-group" style={{ gridColumn:'span 2' }}>
                 <label className="input-label">Description</label>
                 <input className="input-field" value={form.description}
                   onChange={e => setForm({...form, description:e.target.value})} />
@@ -456,19 +409,38 @@ function DomainsPanel() {
           {domains.map(d => (
             <div key={d.id} className="domain-admin-card glass-card">
               <span className="domain-admin-icon">{d.icon}</span>
-              <div className="domain-admin-info">
+              <div className="domain-admin-info" style={{ flex: 1 }}>
                 <strong>{d.name}</strong>
-                <span className="domain-admin-slug">/{d.slug}</span>
                 {d.description && <p>{d.description}</p>}
+                <div style={{ fontSize: '0.8rem', marginTop: 4, color: 'var(--primary)' }}>
+                  Lead: {d.lead_name || 'None'}
+                </div>
               </div>
-              <button
-                id={`delete-domain-${d.id}`}
-                className="btn btn-danger btn-sm domain-delete-btn"
-                onClick={() => handleDelete(d.id, d.name)}
-                title="Delete domain"
-              >
-                <Trash2 size={14}/>
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <Link
+                  className="btn btn-primary btn-sm"
+                  to={`/domain/${d.id}/dashboard`}
+                  title="View Dashboard"
+                  style={{ textDecoration: 'none', textAlign: 'center' }}
+                >
+                  Dashboard
+                </Link>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => handleSetLead(d.id, d.lead_name)}
+                  title="Set Lead via Email"
+                >
+                  <UserCheck size={14}/>
+                </button>
+                <button
+                  id={`delete-domain-${d.id}`}
+                  className="btn btn-danger btn-sm domain-delete-btn"
+                  onClick={() => handleDelete(d.id, d.name)}
+                  title="Delete domain"
+                >
+                  <Trash2 size={14}/>
+                </button>
+              </div>
             </div>
           ))}
         </div>

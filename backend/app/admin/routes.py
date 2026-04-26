@@ -12,7 +12,7 @@ Endpoints:
   GET  /api/admin/stats                    → Dashboard statistics
 """
 from flask import jsonify, request
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from . import admin_bp
 from ..auth.utils import roles_required
@@ -126,6 +126,23 @@ def toggle_user_active(user_id: str):
     }), 200
 
 
+@admin_bp.route("/users/<string:user_id>", methods=["DELETE"])
+@jwt_required()
+@roles_required("admin")
+def delete_user(user_id: str):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Prevent deleting yourself
+    if get_jwt_identity() == user.id:
+        return jsonify({"error": "Cannot delete your own account"}), 400
+
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({"message": "User account permanently deleted"}), 200
+
+
 # ── Domain Management ─────────────────────────────────────────────────────────
 
 @admin_bp.route("/domains")
@@ -142,15 +159,20 @@ def list_domains():
 def create_domain():
     data = request.get_json(silent=True) or {}
     name = str(data.get("name", "")).strip()
-    slug = str(data.get("slug", "")).strip().lower().replace(" ", "-")
     description = str(data.get("description", "")).strip()
     icon = str(data.get("icon", "🔧")).strip()
 
-    if not name or not slug:
-        return jsonify({"error": "Both 'name' and 'slug' are required"}), 400
+    if not name:
+        return jsonify({"error": "'name' is required"}), 400
 
-    if Domain.query.filter_by(slug=slug).first():
-        return jsonify({"error": f"Domain with slug '{slug}' already exists"}), 409
+    # Auto-generate a unique slug from the name
+    import re
+    base_slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
+    slug = base_slug
+    counter = 1
+    while Domain.query.filter_by(slug=slug).first():
+        slug = f"{base_slug}-{counter}"
+        counter += 1
 
     domain = Domain(name=name, slug=slug, description=description, icon=icon)
     db.session.add(domain)
@@ -169,6 +191,51 @@ def delete_domain(domain_id: int):
     db.session.delete(domain)
     db.session.commit()
     return jsonify({"message": f"Domain '{domain.name}' deleted"}), 200
+
+
+@admin_bp.route("/domains/<int:domain_id>/lead", methods=["POST"])
+@jwt_required()
+@roles_required("admin")
+def set_domain_lead(domain_id: int):
+    domain = Domain.query.get(domain_id)
+    if not domain:
+        return jsonify({"error": "Domain not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    email = data.get("email")
+
+    old_lead_id = domain.lead_id
+
+    if not email or email.strip() == "":
+        # Removing the lead
+        domain.lead_id = None
+    else:
+        user = User.query.filter_by(email=email.strip()).first()
+        if not user:
+            return jsonify({"error": "User with this email not found"}), 404
+        domain.lead_id = user.id
+
+        # Grant domain_lead role to the new lead
+        role = Role.query.filter_by(name=Role.DOMAIN_LEAD).first()
+        if role and role not in user.roles:
+            user.roles.append(role)
+
+    # If there was a previous lead and they changed, check if old lead still leads any domain
+    if old_lead_id and old_lead_id != domain.lead_id:
+        old_lead = User.query.get(old_lead_id)
+        if old_lead:
+            still_leads = Domain.query.filter(
+                Domain.lead_id == old_lead_id,
+                Domain.id != domain_id
+            ).count()
+            if still_leads == 0:
+                # Remove domain_lead role from old lead
+                role = Role.query.filter_by(name=Role.DOMAIN_LEAD).first()
+                if role and role in old_lead.roles:
+                    old_lead.roles.remove(role)
+
+    db.session.commit()
+    return jsonify({"message": "Domain lead updated", "domain": domain.to_dict()}), 200
 
 
 # ── Statistics ────────────────────────────────────────────────────────────────

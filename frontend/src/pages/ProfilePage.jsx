@@ -127,33 +127,7 @@ export default function ProfilePage() {
               </div>
             </section>
 
-            {/* Account security */}
-            <section className="profile-section glass-card">
-              <h2 className="section-title">🔐 Account Security</h2>
-              <div className="profile-security-grid">
-                <div className={`security-item ${user.is_verified ? 'ok' : 'warn'}`}>
-                  <span className="security-icon">{user.is_verified ? '✅' : '⚠️'}</span>
-                  <div>
-                    <strong>Email Verification</strong>
-                    <p>{user.is_verified ? 'Verified' : 'Pending verification'}</p>
-                  </div>
-                </div>
-                <div className={`security-item ${user.face_registered ? 'ok' : 'neutral'}`}>
-                  <span className="security-icon">{user.face_registered ? '🔒' : '👤'}</span>
-                  <div>
-                    <strong>Facial Recognition</strong>
-                    <p>{user.face_registered ? 'Registered (immutable)' : 'Not registered'}</p>
-                  </div>
-                </div>
-                <div className="security-item ok">
-                  <span className="security-icon">🔑</span>
-                  <div>
-                    <strong>Google OAuth 2.0</strong>
-                    <p>Connected via Google Sign-In</p>
-                  </div>
-                </div>
-              </div>
-            </section>
+
           </div>
         </div>
       </div>

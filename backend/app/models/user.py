@@ -105,6 +105,8 @@ class User(db.Model):
             data["roles"] = [r.name for r in self.roles]
         if include_domains:
             data["domains"] = [d.to_dict() for d in self.domains]
+            # Include led domains so frontend can render nav appropriately
+            data["led_domains"] = [d.to_dict() for d in self.led_domains]
         return data
 
     # ── RBAC helpers ──────────────────────────────────────────────────────────
@@ -169,18 +171,52 @@ class Domain(db.Model):
     slug        = db.Column(db.String(100), unique=True, nullable=False)
     description = db.Column(db.String(255), nullable=True)
     icon        = db.Column(db.String(10),  nullable=True)   # emoji
+    lead_id     = db.Column(db.String(36), db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    lead = db.relationship("User", backref="led_domains", foreign_keys=[lead_id])
 
     def to_dict(self) -> dict:
         return {
             "id":          self.id,
             "name":        self.name,
-            "slug":        self.slug,
             "description": self.description,
             "icon":        self.icon,
+            "lead_id":     self.lead_id,
+            "lead_name":   self.lead.name if self.lead else None,
         }
 
     def __repr__(self) -> str:
         return f"<Domain {self.name}>"
+
+
+# ── Domain Join Request ───────────────────────────────────────────────────────
+
+class DomainJoinRequest(db.Model):
+    __tablename__ = "domain_join_requests"
+
+    id         = db.Column(db.Integer, primary_key=True)
+    user_id    = db.Column(db.String(36), db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    domain_id  = db.Column(db.Integer, db.ForeignKey("domains.id", ondelete="CASCADE"), nullable=False)
+    status     = db.Column(db.String(20), default="pending", nullable=False) # pending, accepted, rejected
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user   = db.relationship("User", backref=db.backref("join_requests", cascade="all, delete-orphan", lazy="dynamic"))
+    domain = db.relationship("Domain", backref=db.backref("join_requests", cascade="all, delete-orphan", lazy="dynamic"))
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "domain_id": self.domain_id,
+            "status": self.status,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "user_name": self.user.name if self.user else None,
+            "user_email": self.user.email if self.user else None,
+            "domain_name": self.domain.name if self.domain else None
+        }
+
+    def __repr__(self) -> str:
+        return f"<DomainJoinRequest user_id={self.user_id} domain_id={self.domain_id} status={self.status}>"
 
 
 # ── OTP Token ─────────────────────────────────────────────────────────────────

@@ -14,7 +14,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from . import profile_bp
 from ..auth.utils import verified_required, otp_required
 from ..extensions import db
-from ..models.user import Domain, User
+from ..models.user import Domain, User, DomainJoinRequest
 
 
 # ── View Profile ──────────────────────────────────────────────────────────────
@@ -86,18 +86,46 @@ def update_domains():
     if len(domain_ids) > 10:
         return jsonify({"error": "You may select up to 10 domains"}), 400
 
-    if domain_ids:
-        domains = Domain.query.filter(Domain.id.in_(domain_ids)).all()
-        if len(domains) != len(set(domain_ids)):
-            return jsonify({"error": "One or more domain IDs are invalid"}), 400
-    else:
-        domains = []
+    target_domain_ids = set(domain_ids)
+    
+    # Ensure lead domains are ALWAYS included in target domains
+    led_domains = Domain.query.filter_by(lead_id=user.id).all()
+    for ld in led_domains:
+        target_domain_ids.add(ld.id)
 
-    user.domains = domains
+    # Calculate removals: currently in user.domains but NOT in target_domain_ids
+    current_domain_ids = {d.id for d in user.domains}
+    to_remove_ids = current_domain_ids - target_domain_ids
+
+    # Remove users from domains they no longer want
+    new_domains_list = [d for d in user.domains if d.id not in to_remove_ids]
+    user.domains = new_domains_list
+
+    # Calculate additions (requested domains that user is NOT already in)
+    new_requested_ids = target_domain_ids - current_domain_ids
+
+    if new_requested_ids:
+        for r_id in new_requested_ids:
+            # Check if pending request already exists
+            existing_req = DomainJoinRequest.query.filter_by(user_id=user.id, domain_id=r_id, status="pending").first()
+            if not existing_req:
+                req = DomainJoinRequest(user_id=user.id, domain_id=r_id, status="pending")
+                db.session.add(req)
+
+    # If the user deselected domains that were only "pending", remove those pending requests
+    pending_reqs = DomainJoinRequest.query.filter_by(user_id=user.id, status="pending").all()
+    for req in pending_reqs:
+        if req.domain_id not in target_domain_ids:
+            db.session.delete(req)
+
     db.session.commit()
+    
+    updated_pending = DomainJoinRequest.query.filter_by(user_id=user.id, status="pending").all()
+    
     return jsonify({
-        "message": "Domains updated",
-        "domains": [d.to_dict() for d in domains],
+        "message": "Domain preferences updated. New domains require approval.",
+        "domains": [d.to_dict() for d in user.domains],
+        "pending_requests": [req.to_dict() for req in updated_pending]
     }), 200
 
 
@@ -107,6 +135,17 @@ def get_all_domains():
     """Return all available domains for the domain-selection UI."""
     domains = Domain.query.order_by(Domain.name).all()
     return jsonify({"domains": [d.to_dict() for d in domains]}), 200
+
+
+@profile_bp.route("/requests")
+@jwt_required()
+@verified_required
+@otp_required
+def get_my_requests():
+    """Return the current user's pending domain join requests."""
+    user_id = get_jwt_identity()
+    requests = DomainJoinRequest.query.filter_by(user_id=user_id, status="pending").all()
+    return jsonify({"requests": [r.to_dict() for r in requests]}), 200
 
 
 # ── Face Registration (one-time, immutable) ───────────────────────────────────

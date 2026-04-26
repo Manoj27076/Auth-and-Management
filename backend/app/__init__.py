@@ -81,10 +81,12 @@ def create_app(config_name: str | None = None) -> Flask:
     from .auth import auth_bp
     from .profile import profile_bp
     from .admin import admin_bp
+    from .domain_lead.routes import domain_dashboard_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(profile_bp, url_prefix="/api/profile")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
+    app.register_blueprint(domain_dashboard_bp)
 
     # ── Health check ──────────────────────────────────────────────────────────
     @app.route("/api/health")

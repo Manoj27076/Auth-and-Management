@@ -3,27 +3,35 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import DomainSelector from '../components/DomainSelector'
 import api from '../api/axios'
-import { ArrowLeft, Save } from 'lucide-react'
+import { ArrowLeft, Save, Clock, CheckCircle, XCircle } from 'lucide-react'
 import './EditProfilePage.css'
 
 export default function EditProfilePage() {
   const { user, refreshUser } = useAuth()
   const navigate = useNavigate()
 
-  const [name,       setName]       = useState(user?.name ?? '')
-  const [domains,    setDomains]    = useState([])
-  const [selected,   setSelected]   = useState([])
-  const [loading,    setLoading]    = useState(false)
-  const [fetchingD,  setFetchingD]  = useState(true)
-  const [error,      setError]      = useState('')
-  const [saved,      setSaved]      = useState(false)
+  const [name,           setName]           = useState(user?.name ?? '')
+  const [allDomains,     setAllDomains]     = useState([])
+  const [selected,       setSelected]       = useState([])
+  const [pendingRequests,setPendingRequests] = useState([])
+  const [loading,        setLoading]        = useState(false)
+  const [fetchingD,      setFetchingD]      = useState(true)
+  const [error,          setError]          = useState('')
+  const [saved,          setSaved]          = useState(false)
 
-  // Load all available domains
+  // Load all available domains + user's pending requests
   useEffect(() => {
-    api.get('/profile/domains/all')
-      .then(r => {
-        setDomains(r.data.domains)
-        setSelected(user?.domains?.map(d => d.id) ?? [])
+    Promise.all([
+      api.get('/profile/domains/all'),
+      api.get('/profile/requests')
+    ])
+      .then(([domainsRes, reqRes]) => {
+        setAllDomains(domainsRes.data.domains)
+        // Pre-select current domains + pending-request domains (so UX doesn't look broken)
+        const currentIds = user?.domains?.map(d => d.id) ?? []
+        const pendingIds = (reqRes.data.requests ?? []).map(r => r.domain_id)
+        setSelected([...new Set([...currentIds, ...pendingIds])])
+        setPendingRequests(reqRes.data.requests ?? [])
       })
       .catch(() => setError('Failed to load domains.'))
       .finally(() => setFetchingD(false))
@@ -36,7 +44,9 @@ export default function EditProfilePage() {
     setError('')
     try {
       await api.put('/profile/edit',    { name: name.trim() })
-      await api.put('/profile/domains', { domain_ids: selected })
+      const domRes = await api.put('/profile/domains', { domain_ids: selected })
+      // Refresh pending requests from the response
+      setPendingRequests(domRes.data.pending_requests ?? [])
       await refreshUser()
       setSaved(true)
       setTimeout(() => navigate('/profile'), 1500)
@@ -46,6 +56,12 @@ export default function EditProfilePage() {
       setLoading(false)
     }
   }
+
+  // IDs the user is already a full member of (not pending)
+  const memberDomainIds = new Set(user?.domains?.map(d => d.id) ?? [])
+  const pendingDomainIds = new Set(pendingRequests.map(r => r.domain_id))
+  // Lead domains (cannot leave)
+  const ledDomainIds = new Set(user?.led_domains?.map(d => d.id) ?? [])
 
   return (
     <div className="edit-page page-wrapper">
@@ -60,7 +76,7 @@ export default function EditProfilePage() {
           <div className="edit-card glass-card">
             <h1 className="edit-title">Edit Profile</h1>
             <p style={{ color: 'var(--text-muted)', marginBottom: 8 }}>
-              Update your display name and select your domains of interest.
+              Update your display name and request to join domains of interest.
             </p>
 
             <form onSubmit={handleSave} id="edit-profile-form">
@@ -95,12 +111,15 @@ export default function EditProfilePage() {
 
               {/* ── Domains ──────────────────── */}
               <section className="edit-section">
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-                  <h2 className="section-title" style={{ marginBottom:0 }}>🌐 Select Your Domains</h2>
-                  <span className="domain-count-badge">
-                    {selected.length} / 10 selected
-                  </span>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+                  <h2 className="section-title" style={{ marginBottom:0 }}>🌐 Domains</h2>
+                  <span className="domain-count-badge">{selected.length} / 10 selected</span>
                 </div>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 16 }}>
+                  Selecting a new domain sends a <strong>join request</strong> to the domain lead.
+                  You will be added once a lead or admin approves your request.
+                  Domains you lead cannot be removed.
+                </p>
 
                 {fetchingD ? (
                   <div className="domain-grid-shimmer">
@@ -110,13 +129,36 @@ export default function EditProfilePage() {
                   </div>
                 ) : (
                   <DomainSelector
-                    domains={domains}
+                    domains={allDomains}
                     selected={selected}
-                    onChange={setSelected}
+                    onChange={(newSelected) => {
+                      // Prevent deselecting led domains
+                      const protected_ = [...ledDomainIds].filter(id => newSelected.includes(id) || !newSelected.includes(id))
+                      const final = [...new Set([...newSelected, ...ledDomainIds])]
+                      setSelected(final)
+                    }}
                     disabled={loading}
+                    lockedIds={[...ledDomainIds]}      // locked = always selected, cannot deselect
+                    pendingIds={[...pendingDomainIds]}  // show "pending" badges
                   />
                 )}
               </section>
+
+              {/* ── Pending Requests Info ─── */}
+              {pendingRequests.length > 0 && (
+                <section className="edit-section">
+                  <h2 className="section-title">⏳ Pending Join Requests</h2>
+                  <div className="pending-requests-list">
+                    {pendingRequests.map(r => (
+                      <div key={r.id} className="pending-req-row">
+                        <Clock size={14} />
+                        <span className="pending-req-name">{r.domain_name}</span>
+                        <span className="pending-req-status">Awaiting approval</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               {/* ── Errors / Success ─────────── */}
               {error && (
