@@ -6,13 +6,13 @@ import RoleBadge from '../components/RoleBadge'
 import LoadingSpinner from '../components/LoadingSpinner'
 import {
   Users, Globe, BarChart3, Search, ChevronLeft, ChevronRight,
-  ShieldCheck, UserX, Plus, Trash2, UserCheck
+  ShieldCheck, UserX, Plus, Trash2, UserCheck, CheckCircle
 } from 'lucide-react'
 import './AdminPage.css'
 
 export default function AdminPage() {
   const { user: currentUser } = useAuth()
-  const [tab, setTab]         = useState('overview')
+  const [tab, setTab] = useState('overview')
 
   return (
     <div className="admin-page page-wrapper">
@@ -30,9 +30,10 @@ export default function AdminPage() {
         {/* Tab bar */}
         <div className="admin-tabs fade-in">
           {[
-            { key: 'overview', icon: <BarChart3 size={16}/>, label: 'Overview' },
-            { key: 'users',    icon: <Users      size={16}/>, label: 'Users'    },
-            { key: 'domains',  icon: <Globe      size={16}/>, label: 'Domains'  },
+            { key: 'overview', icon: <BarChart3 size={16} />, label: 'Overview' },
+            { key: 'approvals', icon: <CheckCircle size={16} />, label: 'Pending Approvals' },
+            { key: 'users', icon: <Users size={16} />, label: 'Users' },
+            { key: 'domains', icon: <Globe size={16} />, label: 'Domains' },
           ].map(t => (
             <button
               key={t.key}
@@ -48,8 +49,9 @@ export default function AdminPage() {
         {/* Panels */}
         <div className="fade-in">
           {tab === 'overview' && <OverviewPanel />}
-          {tab === 'users'    && <UsersPanel    />}
-          {tab === 'domains'  && <DomainsPanel  />}
+          {tab === 'approvals' && <ApprovalsPanel />}
+          {tab === 'users' && <UsersPanel />}
+          {tab === 'domains' && <DomainsPanel />}
         </div>
       </div>
     </div>
@@ -60,7 +62,7 @@ export default function AdminPage() {
    Overview Panel — stats cards + top domains
 ───────────────────────────────────────────────────────────────────────────── */
 function OverviewPanel() {
-  const [stats,   setStats]   = useState(null)
+  const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -73,10 +75,10 @@ function OverviewPanel() {
   if (loading) return <LoadingSpinner label="Loading stats…" />
 
   const statCards = [
-    { label: 'Total Users',      value: stats.total_users,       icon: '👥', color: 'primary' },
-    { label: 'Verified',         value: stats.verified_users,    icon: '✅', color: 'success' },
-    { label: 'Active Accounts',  value: stats.active_users,      icon: '🟢', color: 'success' },
-    { label: 'Face Registered',  value: stats.face_registrations,icon: '🔒', color: 'cyan'    },
+    { label: 'Total Users', value: stats.total_users, icon: '👥', color: 'primary' },
+    { label: 'Verified', value: stats.verified_users, icon: '✅', color: 'success' },
+    { label: 'Active Accounts', value: stats.active_users, icon: '🟢', color: 'success' },
+    { label: 'Face Registered', value: stats.face_registrations, icon: '🔒', color: 'cyan' },
   ]
 
   return (
@@ -118,11 +120,11 @@ function OverviewPanel() {
           <h3 className="section-title">🌐 Top Domains</h3>
           <div className="top-domains-list">
             {stats.top_domains.length === 0 && (
-              <p style={{ color:'var(--text-muted)' }}>No domain data yet.</p>
+              <p style={{ color: 'var(--text-muted)' }}>No domain data yet.</p>
             )}
             {stats.top_domains.map((d, i) => (
               <div key={d.domain} className="top-domain-row">
-                <span className="top-domain-rank">#{i+1}</span>
+                <span className="top-domain-rank">#{i + 1}</span>
                 <span className="top-domain-icon">{d.icon}</span>
                 <span className="top-domain-name">{d.domain}</span>
                 <span className="top-domain-count">{d.user_count} members</span>
@@ -139,13 +141,13 @@ function OverviewPanel() {
    Users Panel — searchable paginated table with role/active controls
 ───────────────────────────────────────────────────────────────────────────── */
 function UsersPanel() {
-  const [users,     setUsers]     = useState([])
-  const [loading,   setLoading]   = useState(true)
-  const [search,    setSearch]    = useState('')
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [page,      setPage]      = useState(1)
-  const [totalPages,setTotalPages]= useState(1)
-  const [total,     setTotal]     = useState(0)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [total, setTotal] = useState(0)
 
   // Debounce search
   useEffect(() => {
@@ -211,7 +213,7 @@ function UsersPanel() {
             <thead>
               <tr>
                 <th>User</th>
-                <th>Email</th>
+                <th>Reg No</th>
                 <th>Roles</th>
                 <th>Status</th>
                 <th>Joined</th>
@@ -221,7 +223,7 @@ function UsersPanel() {
             <tbody>
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ textAlign:'center', color:'var(--text-muted)', padding:40 }}>
+                  <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 40 }}>
                     No users found.
                   </td>
                 </tr>
@@ -233,20 +235,20 @@ function UsersPanel() {
                       {u.avatar_url
                         ? <img src={u.avatar_url} alt="" className="user-avatar-sm" />
                         : <div className="user-avatar-sm placeholder">
-                            {u.name.charAt(0).toUpperCase()}
-                          </div>
+                          {u.name.charAt(0).toUpperCase()}
+                        </div>
                       }
                       <span className="user-name-cell">{u.name}</span>
                     </div>
                   </td>
-                  <td style={{ color:'var(--text-muted)', fontSize:'0.85rem' }}>{u.email}</td>
+                  <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{u.registration_number || 'N/A'}</td>
                   <td><RoleBadge roles={u.roles} size="sm" /></td>
                   <td>
                     <span className={`badge ${u.is_verified ? 'badge-verified' : 'badge-unverified'}`}>
                       {u.is_verified ? '✅ Verified' : '⏳ Pending'}
                     </span>
                   </td>
-                  <td style={{ fontSize:'0.82rem', color:'var(--text-muted)' }}>
+                  <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
                     {new Date(u.created_at).toLocaleDateString()}
                   </td>
                   <td>
@@ -265,7 +267,7 @@ function UsersPanel() {
                         onClick={() => deleteUser(u)}
                         title="Remove Account completely"
                       >
-                        <UserX size={14}/> Remove
+                        <UserX size={14} /> Remove
                       </button>
                     </div>
                   </td>
@@ -280,18 +282,18 @@ function UsersPanel() {
           <div className="pagination">
             <button
               className="btn btn-ghost btn-sm"
-              onClick={() => setPage(p => Math.max(1, p-1))}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
             >
-              <ChevronLeft size={16}/> Prev
+              <ChevronLeft size={16} /> Prev
             </button>
             <span className="page-info">Page {page} of {totalPages}</span>
             <button
               className="btn btn-ghost btn-sm"
-              onClick={() => setPage(p => Math.min(totalPages, p+1))}
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
             >
-              Next <ChevronRight size={16}/>
+              Next <ChevronRight size={16} />
             </button>
           </div>
         )}
@@ -304,12 +306,12 @@ function UsersPanel() {
    Domains Panel — list + create form
 ───────────────────────────────────────────────────────────────────────────── */
 function DomainsPanel() {
-  const [domains,  setDomains]  = useState([])
-  const [loading,  setLoading]  = useState(true)
+  const [domains, setDomains] = useState([])
+  const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [form,     setForm]     = useState({ name:'', description:'', icon:'🔧' })
-  const [saving,   setSaving]   = useState(false)
-  const [error,    setError]    = useState('')
+  const [form, setForm] = useState({ name: '', description: '', icon: '🔧' })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   const fetchDomains = useCallback(async () => {
     setLoading(true)
@@ -328,7 +330,7 @@ function DomainsPanel() {
     setSaving(true)
     try {
       await api.post('/admin/domains', form)
-      setForm({ name:'', description:'', icon:'🔧' })
+      setForm({ name: '', description: '', icon: '🔧' })
       setShowForm(false)
       fetchDomains()
     } catch (err) {
@@ -345,10 +347,10 @@ function DomainsPanel() {
   }
 
   const handleSetLead = async (id, currentLead) => {
-    const email = window.prompt(`Enter exact email of the new lead for this domain.\nLeave blank to remove current lead (${currentLead || 'None'}):`)
-    if (email === null) return // cancelled
+    const regNo = window.prompt(`Enter exact Registration Number of the new lead for this domain.\nLeave blank to remove current lead (${currentLead || 'None'}):`)
+    if (regNo === null) return // cancelled
     try {
-      await api.post(`/admin/domains/${id}/lead`, { email: email.trim() })
+      await api.post(`/admin/domains/${id}/lead`, { registration_number: regNo.trim() })
       fetchDomains()
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to update domain lead.')
@@ -358,13 +360,13 @@ function DomainsPanel() {
   return (
     <div className="domains-panel">
       <div className="domains-toolbar">
-        <h2 className="section-title" style={{ margin:0 }}>🌐 All Domains ({domains.length})</h2>
+        <h2 className="section-title" style={{ margin: 0 }}>🌐 All Domains ({domains.length})</h2>
         <button
           id="add-domain-btn"
           className="btn btn-primary btn-sm"
           onClick={() => setShowForm(!showForm)}
         >
-          <Plus size={15}/> New Domain
+          <Plus size={15} /> New Domain
         </button>
       </div>
 
@@ -377,21 +379,21 @@ function DomainsPanel() {
               <div className="input-group">
                 <label className="input-label">Icon (emoji)</label>
                 <input className="input-field" value={form.icon}
-                  onChange={e => setForm({...form, icon:e.target.value})} maxLength={4} />
+                  onChange={e => setForm({ ...form, icon: e.target.value })} maxLength={4} />
               </div>
-              <div className="input-group" style={{ gridColumn:'span 2' }}>
+              <div className="input-group" style={{ gridColumn: 'span 2' }}>
                 <label className="input-label">Name *</label>
                 <input className="input-field" value={form.name} required
-                  onChange={e => setForm({...form, name:e.target.value})} placeholder="Web Development" />
+                  onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Web Development" />
               </div>
-              <div className="input-group" style={{ gridColumn:'span 2' }}>
+              <div className="input-group" style={{ gridColumn: 'span 2' }}>
                 <label className="input-label">Description</label>
                 <input className="input-field" value={form.description}
-                  onChange={e => setForm({...form, description:e.target.value})} />
+                  onChange={e => setForm({ ...form, description: e.target.value })} />
               </div>
             </div>
             {error && <div className="alert alert-error">⚠️ {error}</div>}
-            <div style={{ display:'flex', gap:10, marginTop:12 }}>
+            <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
               <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>
                 {saving ? 'Creating…' : 'Create Domain'}
               </button>
@@ -428,9 +430,9 @@ function DomainsPanel() {
                 <button
                   className="btn btn-secondary btn-sm"
                   onClick={() => handleSetLead(d.id, d.lead_name)}
-                  title="Set Lead via Email"
+                  title="Set Lead via Registration Number"
                 >
-                  <UserCheck size={14}/>
+                  <UserCheck size={14} />
                 </button>
                 <button
                   id={`delete-domain-${d.id}`}
@@ -438,13 +440,105 @@ function DomainsPanel() {
                   onClick={() => handleDelete(d.id, d.name)}
                   title="Delete domain"
                 >
-                  <Trash2 size={14}/>
+                  <Trash2 size={14} />
                 </button>
               </div>
             </div>
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Approvals Panel — view and approve pending users
+───────────────────────────────────────────────────────────────────────────── */
+function ApprovalsPanel() {
+  const [pendingUsers, setPendingUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  const fetchPending = useCallback(async () => {
+    setLoading(true)
+    try {
+      const { data } = await api.get('/admin/pending-approvals')
+      setPendingUsers(data.users)
+    } catch { /* handled */ }
+    finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => { fetchPending() }, [fetchPending])
+
+  const handleApprove = async (u) => {
+    if (!window.confirm(`Approve account for ${u.name} (${u.registration_number})?`)) return
+    try {
+      await api.post(`/admin/users/${u.id}/approve`)
+      fetchPending()
+    } catch (e) {
+      alert(e.response?.data?.error || 'Failed to approve user')
+    }
+  }
+
+  return (
+    <div className="users-panel">
+      <div className="users-toolbar glass-card">
+        <h2 className="section-title" style={{ margin: 0 }}>Pending Approvals ({pendingUsers.length})</h2>
+      </div>
+
+      <div className="glass-card table-wrap">
+        {loading ? (
+          <LoadingSpinner label="Loading pending users…" />
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Registration No</th>
+                <th>Year</th>
+                <th>Department</th>
+                <th>Section</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingUsers.length === 0 && (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 40 }}>
+                    No pending approvals.
+                  </td>
+                </tr>
+              )}
+              {pendingUsers.map(u => (
+                <tr key={u.id}>
+                  <td>
+                    <div className="user-cell">
+                      {u.avatar_url
+                        ? <img src={u.avatar_url} alt="" className="user-avatar-sm" />
+                        : <div className="user-avatar-sm placeholder">
+                          {u.name.charAt(0).toUpperCase()}
+                        </div>
+                      }
+                      <span className="user-name-cell">{u.name}</span>
+                    </div>
+                  </td>
+                  <td>{u.registration_number}</td>
+                  <td>{u.year}</td>
+                  <td>{u.department}</td>
+                  <td>{u.section}</td>
+                  <td>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => handleApprove(u)}
+                    >
+                      <CheckCircle size={14} /> Approve
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   )
 }

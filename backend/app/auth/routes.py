@@ -158,6 +158,83 @@ def google_callback():
     except Exception as exc:
         return f"ERROR: {str(exc)}", 500
 
+# ── Login via Registration Number ─────────────────────────────────────────────
+
+@auth_bp.route("/request-otp", methods=["POST"])
+@limiter.limit("5 per minute")
+def request_otp_by_reg():
+    """
+    Request an OTP using a registration number instead of Google OAuth.
+    Returns a short-lived JWT session for the OTP verification step.
+    """
+    data = request.get_json(silent=True) or {}
+    reg_no = data.get("registration_number", "").strip()
+    
+    if not reg_no:
+        return jsonify({"error": "Registration number is required"}), 400
+        
+    user = User.query.filter_by(registration_number=reg_no).first()
+    if not user:
+        return jsonify({"error": "Account not found. Please sign up with Google first."}), 404
+        
+    if not user.is_active:
+        return jsonify({"error": "Account deactivated."}), 403
+        
+    if not user.is_approved:
+        return jsonify({"error": "Your account is pending admin approval."}), 403
+        
+    otp = generate_otp(user.id)
+    ok = send_verification_email(user, otp)
+    
+    if not ok:
+        current_app.logger.warning("Email send failed for %s (user_id=%s) — OTP: %s", user.email, user.id, otp)
+        return jsonify({"error": "Failed to send OTP to your email."}), 500
+        
+    return _make_jwt_response(user)
+
+
+# ── Complete Onboarding ───────────────────────────────────────────────────────
+
+@auth_bp.route("/complete-onboarding", methods=["POST"])
+@jwt_required()
+def complete_onboarding():
+    """Submit registration details for a newly created user."""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+        
+    if user.registration_number:
+        return jsonify({"error": "Onboarding already completed."}), 400
+        
+    data = request.get_json(silent=True) or {}
+    reg_no = data.get("registration_number", "").strip()
+    year = data.get("year", "").strip()
+    dept = data.get("department", "").strip()
+    section = data.get("section", "").strip()
+    name = data.get("name", "").strip()
+    
+    if not all([reg_no, year, dept, section, name]):
+        return jsonify({"error": "All fields are required"}), 400
+        
+    # Check if reg_no already exists
+    existing = User.query.filter_by(registration_number=reg_no).first()
+    if existing and existing.id != user.id:
+        return jsonify({"error": "Registration number already in use"}), 400
+        
+    user.name = name
+    user.registration_number = reg_no
+    user.year = year
+    user.department = dept
+    user.section = section
+    user.is_approved = False  # explicitly pending approval
+    
+    db.session.commit()
+    
+    return jsonify({"message": "Onboarding completed. Pending approval.", "user": user.to_dict()}), 200
+
+
 
 # ── /me ───────────────────────────────────────────────────────────────────────
 

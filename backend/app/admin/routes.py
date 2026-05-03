@@ -202,17 +202,17 @@ def set_domain_lead(domain_id: int):
         return jsonify({"error": "Domain not found"}), 404
 
     data = request.get_json(silent=True) or {}
-    email = data.get("email")
+    registration_number = data.get("registration_number")
 
     old_lead_id = domain.lead_id
 
-    if not email or email.strip() == "":
+    if not registration_number or registration_number.strip() == "":
         # Removing the lead
         domain.lead_id = None
     else:
-        user = User.query.filter_by(email=email.strip()).first()
+        user = User.query.filter_by(registration_number=registration_number.strip()).first()
         if not user:
-            return jsonify({"error": "User with this email not found"}), 404
+            return jsonify({"error": "User with this registration number not found"}), 404
         domain.lead_id = user.id
 
         # Grant domain_lead role to the new lead
@@ -236,6 +236,32 @@ def set_domain_lead(domain_id: int):
 
     db.session.commit()
     return jsonify({"message": "Domain lead updated", "domain": domain.to_dict()}), 200
+
+
+# ── Pending Approvals ─────────────────────────────────────────────────────────
+
+@admin_bp.route("/pending-approvals")
+@jwt_required()
+@roles_required("admin")
+def list_pending_approvals():
+    """List all users who have completed onboarding but are not yet approved."""
+    pending_users = User.query.filter(User.registration_number.isnot(None), User.is_approved == False).order_by(User.created_at.desc()).all()
+    return jsonify({"users": [u.to_dict() for u in pending_users]}), 200
+
+
+@admin_bp.route("/users/<string:user_id>/approve", methods=["POST"])
+@jwt_required()
+@roles_required("admin")
+def approve_user(user_id: str):
+    """Approve a pending user."""
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+        
+    user.is_approved = True
+    db.session.commit()
+    
+    return jsonify({"message": "User approved successfully", "user": user.to_dict()}), 200
 
 
 # ── Statistics ────────────────────────────────────────────────────────────────

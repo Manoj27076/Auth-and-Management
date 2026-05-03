@@ -8,7 +8,9 @@ Endpoints:
   GET  /api/profile/domains/all  → List all available domains
   POST /api/profile/face         → One-time face registration flag (immutable)
 """
-from flask import jsonify, request
+import os
+from werkzeug.utils import secure_filename
+from flask import jsonify, request, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from . import profile_bp
@@ -57,10 +59,60 @@ def edit_profile():
             return jsonify({"error": "Name is too long (max 255 characters)"}), 400
         user.name = name
 
+    if "year" in data:
+        user.year = str(data["year"]).strip()
+    
+    if "department" in data:
+        user.department = str(data["department"]).strip()
+
+    if "section" in data:
+        user.section = str(data["section"]).strip()
+
+    if "avatar_url" in data:
+        user.avatar_url = str(data["avatar_url"]).strip()
+
     # Guard: silently ignore attempts to change email or face_registered
     # Role changes go through the admin blueprint only
     db.session.commit()
     return jsonify({"message": "Profile updated", "user": user.to_dict()}), 200
+
+
+# ── Avatar Upload ─────────────────────────────────────────────────────────────
+
+@profile_bp.route("/avatar", methods=["POST"])
+@jwt_required()
+@verified_required
+@otp_required
+def upload_avatar():
+    """Upload a new profile picture (PNG only)."""
+    user: User | None = User.query.get(get_jwt_identity())
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part in the request"}), 400
+        
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+        
+    if file and file.filename.lower().endswith('.png'):
+        filename = secure_filename(f"user_{user.id}_{file.filename}")
+        # Ensure directory exists
+        upload_folder = os.path.join(current_app.root_path, 'static', 'avatars')
+        os.makedirs(upload_folder, exist_ok=True)
+        
+        filepath = os.path.join(upload_folder, filename)
+        file.save(filepath)
+        
+        # Update user avatar_url
+        avatar_url = f"/static/avatars/{filename}"
+        user.avatar_url = avatar_url
+        db.session.commit()
+        
+        return jsonify({"message": "Avatar updated successfully", "avatar_url": avatar_url}), 200
+    else:
+        return jsonify({"error": "Only PNG files are allowed"}), 400
 
 
 # ── Domain Selection ──────────────────────────────────────────────────────────

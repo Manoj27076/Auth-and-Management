@@ -10,6 +10,7 @@ import ProfilePage      from './pages/ProfilePage'
 import EditProfilePage  from './pages/EditProfilePage'
 import AdminPage          from './pages/AdminPage'
 import DomainDashboardPage from './pages/DomainDashboardPage'
+import OnboardingPage   from './pages/OnboardingPage'
 
 export default function App() {
   return (
@@ -27,8 +28,16 @@ export default function App() {
           <Route
             path="/verify-email"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requireOnboarded={false}>
                 <VerifyEmailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/onboarding"
+            element={
+              <ProtectedRoute requireVerified requireOnboarded={false}>
+                <OnboardingPage />
               </ProtectedRoute>
             }
           />

@@ -1,41 +1,35 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import DomainSelector from '../components/DomainSelector'
 import api from '../api/axios'
-import { ArrowLeft, Save, Clock, CheckCircle, XCircle } from 'lucide-react'
+import { ArrowLeft, Save, Upload, User } from 'lucide-react'
 import './EditProfilePage.css'
 
 export default function EditProfilePage() {
   const { user, refreshUser } = useAuth()
   const navigate = useNavigate()
 
-  const [name,           setName]           = useState(user?.name ?? '')
-  const [allDomains,     setAllDomains]     = useState([])
-  const [selected,       setSelected]       = useState([])
-  const [pendingRequests,setPendingRequests] = useState([])
-  const [loading,        setLoading]        = useState(false)
-  const [fetchingD,      setFetchingD]      = useState(true)
-  const [error,          setError]          = useState('')
-  const [saved,          setSaved]          = useState(false)
+  const [name, setName] = useState(user?.name ?? '')
+  const [year, setYear] = useState(user?.year ?? '1st')
+  const [department, setDepartment] = useState(user?.department ?? '')
+  const [section, setSection] = useState(user?.section ?? '')
+  const [avatarFile, setAvatarFile] = useState(null)
+  const [avatarPreview, setAvatarPreview] = useState(user?.avatar_url ?? null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [saved, setSaved] = useState(false)
 
-  // Load all available domains + user's pending requests
-  useEffect(() => {
-    Promise.all([
-      api.get('/profile/domains/all'),
-      api.get('/profile/requests')
-    ])
-      .then(([domainsRes, reqRes]) => {
-        setAllDomains(domainsRes.data.domains)
-        // Pre-select current domains + pending-request domains (so UX doesn't look broken)
-        const currentIds = user?.domains?.map(d => d.id) ?? []
-        const pendingIds = (reqRes.data.requests ?? []).map(r => r.domain_id)
-        setSelected([...new Set([...currentIds, ...pendingIds])])
-        setPendingRequests(reqRes.data.requests ?? [])
-      })
-      .catch(() => setError('Failed to load domains.'))
-      .finally(() => setFetchingD(false))
-  }, [user])
+  const handleFileChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (!file.name.toLowerCase().endsWith('.png')) {
+      setError('Only PNG files are allowed.')
+      return
+    }
+    setError('')
+    setAvatarFile(file)
+    setAvatarPreview(URL.createObjectURL(file))
+  }
 
   const handleSave = async (e) => {
     e.preventDefault()
@@ -43,10 +37,21 @@ export default function EditProfilePage() {
     setLoading(true)
     setError('')
     try {
-      await api.put('/profile/edit',    { name: name.trim() })
-      const domRes = await api.put('/profile/domains', { domain_ids: selected })
-      // Refresh pending requests from the response
-      setPendingRequests(domRes.data.pending_requests ?? [])
+      // Upload avatar first if a new file was selected
+      if (avatarFile) {
+        const formData = new FormData()
+        formData.append('file', avatarFile)
+        await api.post('/profile/avatar', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+      }
+      // Save other profile fields
+      await api.put('/profile/edit', {
+        name: name.trim(),
+        year,
+        department: department.trim(),
+        section: section.trim(),
+      })
       await refreshUser()
       setSaved(true)
       setTimeout(() => navigate('/profile'), 1500)
@@ -56,12 +61,6 @@ export default function EditProfilePage() {
       setLoading(false)
     }
   }
-
-  // IDs the user is already a full member of (not pending)
-  const memberDomainIds = new Set(user?.domains?.map(d => d.id) ?? [])
-  const pendingDomainIds = new Set(pendingRequests.map(r => r.domain_id))
-  // Lead domains (cannot leave)
-  const ledDomainIds = new Set(user?.led_domains?.map(d => d.id) ?? [])
 
   return (
     <div className="edit-page page-wrapper">
@@ -76,13 +75,57 @@ export default function EditProfilePage() {
           <div className="edit-card glass-card">
             <h1 className="edit-title">Edit Profile</h1>
             <p style={{ color: 'var(--text-muted)', marginBottom: 8 }}>
-              Update your display name and request to join domains of interest.
+              Update your display name, academic details, and profile picture.
             </p>
 
             <form onSubmit={handleSave} id="edit-profile-form">
-              {/* ── Name ─────────────────────── */}
+
+              {/* ── Avatar Upload ──────────────────── */}
               <section className="edit-section">
-                <h2 className="section-title">👤 Personal Info</h2>
+                <h2 className="section-title"><Upload size={16} /> Profile Picture</h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+                  {/* Preview */}
+                  <div style={{ flexShrink: 0 }}>
+                    {avatarPreview
+                      ? <img src={avatarPreview} alt="Avatar preview"
+                          style={{ width: 90, height: 90, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--border-primary)', boxShadow: '0 0 20px var(--primary-glow)' }}
+                        />
+                      : <div style={{ width: 90, height: 90, borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', color: '#fff', fontWeight: 700 }}>
+                          {user?.name?.charAt(0).toUpperCase()}
+                        </div>
+                    }
+                  </div>
+                  {/* File picker */}
+                  <div>
+                    <label
+                      htmlFor="avatar-upload"
+                      className="btn btn-secondary"
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <Upload size={16} /> Choose PNG file
+                    </label>
+                    <input
+                      id="avatar-upload"
+                      type="file"
+                      accept=".png,image/png"
+                      onChange={handleFileChange}
+                      style={{ display: 'none' }}
+                    />
+                    {avatarFile && (
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 6 }}>
+                        Selected: {avatarFile.name}
+                      </p>
+                    )}
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                      PNG files only. Recommended: square image.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              {/* ── Personal Info ─────────────────── */}
+              <section className="edit-section">
+                <h2 className="section-title"><User size={16} /> Personal Info</h2>
                 <div className="edit-field-row">
                   <div className="input-group" style={{ flex: 1 }}>
                     <label className="input-label" htmlFor="edit-name">Full Name</label>
@@ -97,68 +140,55 @@ export default function EditProfilePage() {
                     />
                   </div>
                   <div className="input-group" style={{ flex: 1 }}>
-                    <label className="input-label">Email (from Google)</label>
+                    <label className="input-label">Registration Number</label>
                     <input
                       className="input-field"
-                      value={user?.email ?? ''}
+                      value={user?.registration_number ?? ''}
                       disabled
                       readOnly
-                      title="Email is sourced from Google and cannot be changed."
+                      title="Registration number cannot be changed."
                     />
                   </div>
                 </div>
               </section>
 
-              {/* ── Domains ──────────────────── */}
+              {/* ── Academic Info ─────────────────── */}
               <section className="edit-section">
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-                  <h2 className="section-title" style={{ marginBottom:0 }}>🌐 Domains</h2>
-                  <span className="domain-count-badge">{selected.length} / 10 selected</span>
+                <h2 className="section-title">🎓 Academic Info</h2>
+                <div className="edit-field-row">
+                  <div className="input-group" style={{ flex: 1 }}>
+                    <label className="input-label">Year</label>
+                    <select
+                      className="input-field"
+                      value={year}
+                      onChange={e => setYear(e.target.value)}
+                    >
+                      <option value="1st">1st Year</option>
+                      <option value="2nd">2nd Year</option>
+                      <option value="3rd">3rd Year</option>
+                      <option value="4th">4th Year</option>
+                    </select>
+                  </div>
+                  <div className="input-group" style={{ flex: 1 }}>
+                    <label className="input-label">Department</label>
+                    <input
+                      className="input-field"
+                      value={department}
+                      onChange={e => setDepartment(e.target.value)}
+                      placeholder="e.g. CSE, ECE"
+                    />
+                  </div>
+                  <div className="input-group" style={{ flex: 1 }}>
+                    <label className="input-label">Section</label>
+                    <input
+                      className="input-field"
+                      value={section}
+                      onChange={e => setSection(e.target.value)}
+                      placeholder="e.g. A, B"
+                    />
+                  </div>
                 </div>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 16 }}>
-                  Selecting a new domain sends a <strong>join request</strong> to the domain lead.
-                  You will be added once a lead or admin approves your request.
-                  Domains you lead cannot be removed.
-                </p>
-
-                {fetchingD ? (
-                  <div className="domain-grid-shimmer">
-                    {Array.from({ length: 8 }).map((_, i) => (
-                      <div key={i} className="shimmer" style={{ height: 96 }} />
-                    ))}
-                  </div>
-                ) : (
-                  <DomainSelector
-                    domains={allDomains}
-                    selected={selected}
-                    onChange={(newSelected) => {
-                      // Prevent deselecting led domains
-                      const protected_ = [...ledDomainIds].filter(id => newSelected.includes(id) || !newSelected.includes(id))
-                      const final = [...new Set([...newSelected, ...ledDomainIds])]
-                      setSelected(final)
-                    }}
-                    disabled={loading}
-                    lockedIds={[...ledDomainIds]}      // locked = always selected, cannot deselect
-                    pendingIds={[...pendingDomainIds]}  // show "pending" badges
-                  />
-                )}
               </section>
-
-              {/* ── Pending Requests Info ─── */}
-              {pendingRequests.length > 0 && (
-                <section className="edit-section">
-                  <h2 className="section-title">⏳ Pending Join Requests</h2>
-                  <div className="pending-requests-list">
-                    {pendingRequests.map(r => (
-                      <div key={r.id} className="pending-req-row">
-                        <Clock size={14} />
-                        <span className="pending-req-name">{r.domain_name}</span>
-                        <span className="pending-req-status">Awaiting approval</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
 
               {/* ── Errors / Success ─────────── */}
               {error && (

@@ -60,6 +60,13 @@ class User(db.Model):
     avatar_url  = db.Column(db.String(500), nullable=True)
     is_verified = db.Column(db.Boolean,     default=False, nullable=False)
     is_active   = db.Column(db.Boolean,     default=True,  nullable=False)
+    
+    # Onboarding details
+    registration_number = db.Column(db.String(100), unique=True, nullable=True, index=True)
+    year                = db.Column(db.String(50), nullable=True)
+    department          = db.Column(db.String(100), nullable=True)
+    section             = db.Column(db.String(50), nullable=True)
+    is_approved         = db.Column(db.Boolean, default=False, nullable=False)
 
     # Immutable once True — enforced by the before_update event below
     face_registered = db.Column(db.Boolean, default=False, nullable=False)
@@ -97,6 +104,11 @@ class User(db.Model):
             "avatar_url":      self.avatar_url,
             "is_verified":     self.is_verified,
             "is_active":       self.is_active,
+            "registration_number": self.registration_number,
+            "year":            self.year,
+            "department":      self.department,
+            "section":         self.section,
+            "is_approved":     self.is_approved,
             "face_registered": self.face_registered,
             "created_at":      self.created_at.isoformat() if self.created_at else None,
             "updated_at":      self.updated_at.isoformat() if self.updated_at else None,
@@ -211,7 +223,7 @@ class DomainJoinRequest(db.Model):
             "status": self.status,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "user_name": self.user.name if self.user else None,
-            "user_email": self.user.email if self.user else None,
+            "user_registration_number": self.user.registration_number if self.user else None,
             "domain_name": self.domain.name if self.domain else None
         }
 

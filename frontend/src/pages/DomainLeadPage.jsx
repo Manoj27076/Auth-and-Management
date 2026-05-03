@@ -32,13 +32,13 @@ export default function DomainLeadPage() {
   const handleAddMember = async (domainId, e) => {
     e.preventDefault()
     const form = e.target
-    const emailInput = form.elements['email']
-    const email = emailInput.value.trim()
-    if (!email) return
+    const regNoInput = form.elements['registration_number']
+    const registration_number = regNoInput.value.trim()
+    if (!registration_number) return
 
     try {
-      await api.post(`/domain-lead/domains/${domainId}/members`, { email })
-      emailInput.value = ''
+      await api.post(`/domain-lead/domains/${domainId}/members`, { registration_number })
+      regNoInput.value = ''
       fetchDashboard()
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to add member.')
@@ -98,9 +98,9 @@ export default function DomainLeadPage() {
                 
                 <form onSubmit={(e) => handleAddMember(d.id, e)} className="dl-add-form">
                   <input 
-                    name="email"
-                    type="email" 
-                    placeholder="Enter user email to add…" 
+                    name="registration_number"
+                    type="text" 
+                    placeholder="Enter user registration number to add…" 
                     className="input-field"
                     required
                   />
@@ -114,7 +114,7 @@ export default function DomainLeadPage() {
                     <thead>
                       <tr>
                         <th>Member</th>
-                        <th>Email</th>
+                        <th>Registration No</th>
                         <th className="align-right">Action</th>
                       </tr>
                     </thead>
@@ -139,7 +139,7 @@ export default function DomainLeadPage() {
                                 {m.id === user.id && <span className="badge badge-primary">You</span>}
                               </div>
                             </td>
-                            <td><span className="dl-member-email">{m.email}</span></td>
+                            <td><span className="dl-member-email">{m.registration_number || 'N/A'}</span></td>
                             <td className="align-right">
                               <button 
                                 className="btn btn-ghost btn-sm dl-remove-btn"

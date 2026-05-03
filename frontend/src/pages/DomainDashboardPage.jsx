@@ -17,7 +17,7 @@ export default function DomainDashboardPage() {
   const [requests, setRequests] = useState([])
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState('')
-  const [addEmail, setAddEmail] = useState('')
+  const [addRegNo, setAddRegNo] = useState('')
   const [addError, setAddError] = useState('')
   const [addLoading, setAddLoading] = useState(false)
   const [tab, setTab] = useState('members') // 'members' | 'requests'
@@ -41,12 +41,12 @@ export default function DomainDashboardPage() {
 
   const handleAddMember = async (e) => {
     e.preventDefault()
-    if (!addEmail.trim()) return
+    if (!addRegNo.trim()) return
     setAddLoading(true)
     setAddError('')
     try {
-      await api.post(`/domain-dashboard/${domainId}/members`, { email: addEmail.trim() })
-      setAddEmail('')
+      await api.post(`/domain-dashboard/${domainId}/members`, { registration_number: addRegNo.trim() })
+      setAddRegNo('')
       fetchData()
     } catch (err) {
       setAddError(err.response?.data?.error || 'Failed to add member.')
@@ -141,14 +141,14 @@ export default function DomainDashboardPage() {
 
         {/* Add Member form */}
         <div className="glass-card dd-add-form-card">
-          <h3><UserPlus size={16} /> Add Member by Email</h3>
+          <h3><UserPlus size={16} /> Add Member by Registration Number</h3>
           <form onSubmit={handleAddMember} className="dd-add-form">
             <input
-              type="email"
+              type="text"
               className="input-field"
-              placeholder="member@example.com"
-              value={addEmail}
-              onChange={e => setAddEmail(e.target.value)}
+              placeholder="e.g. RAXXXXXXXXXXXXX"
+              value={addRegNo}
+              onChange={e => setAddRegNo(e.target.value)}
               required
             />
             <button type="submit" className="btn btn-primary btn-sm" disabled={addLoading}>
@@ -182,7 +182,7 @@ export default function DomainDashboardPage() {
               <thead>
                 <tr>
                   <th>Member</th>
-                  <th>Email</th>
+                  <th>Registration No</th>
                   <th className="align-right">Action</th>
                 </tr>
               </thead>
@@ -207,7 +207,7 @@ export default function DomainDashboardPage() {
                           )}
                         </div>
                       </td>
-                      <td><span className="dd-email">{m.email}</span></td>
+                      <td><span className="dd-email">{m.registration_number || 'N/A'}</span></td>
                       <td className="align-right">
                         <button
                           className="btn btn-ghost btn-sm dd-remove-btn"
@@ -239,7 +239,7 @@ export default function DomainDashboardPage() {
                 <thead>
                   <tr>
                     <th>User</th>
-                    <th>Email</th>
+                    <th>Registration No</th>
                     <th>Requested</th>
                     <th className="align-right">Actions</th>
                   </tr>
@@ -253,7 +253,7 @@ export default function DomainDashboardPage() {
                           <span className="dd-member-name">{r.user_name}</span>
                         </div>
                       </td>
-                      <td><span className="dd-email">{r.user_email}</span></td>
+                      <td><span className="dd-email">{r.user_registration_number || 'N/A'}</span></td>
                       <td>
                         <span className="dd-email">
                           {new Date(r.created_at).toLocaleDateString()}

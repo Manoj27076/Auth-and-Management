@@ -31,7 +31,41 @@ export default function Navbar() {
     }
   }, [activeDomainId])
 
+  // Hide navbar on verify-email page (mid-OTP flow, disorienting to show)
   if (location.pathname === '/verify-email') return null
+
+  // Simplified navbar: only logo + sign out. No nav links.
+  // Shown on /login, /onboarding, and while waiting for approval.
+  const isSimplified =
+    ['/login', '/onboarding'].includes(location.pathname) ||
+    (isAuthenticated && user && !user.is_approved)
+
+  if (isSimplified) {
+    return (
+      <nav className="navbar">
+        <div className="navbar-inner">
+          <Link to="/login" className="navbar-logo">
+            <img src="/logo.png" alt="TechVayana Logo" style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '8px' }} />
+            <span className="navbar-logo-text">
+              Tech<span className="gradient-text">Vayana</span>
+            </span>
+          </Link>
+          {isAuthenticated && (
+            <div className="navbar-right">
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={async () => { await logout(); navigate('/login') }}
+                title="Sign out"
+              >
+                <LogOut size={16} />
+                <span className="hide-sm">Sign out</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </nav>
+    )
+  }
 
   const handleLogout = async () => {
     await logout()

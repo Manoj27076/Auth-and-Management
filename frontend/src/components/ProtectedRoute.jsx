@@ -13,9 +13,10 @@ import LoadingSpinner from './LoadingSpinner'
 export default function ProtectedRoute({
   children,
   requireVerified = false,
+  requireOnboarded = true,
   requireRole     = null,
 }) {
-  const { isAuthenticated, isVerified, hasRole, loading } = useAuth()
+  const { user, isAuthenticated, isVerified, hasRole, loading } = useAuth()
   const location = useLocation()
 
   if (loading) return <LoadingSpinner fullscreen />
@@ -26,6 +27,16 @@ export default function ProtectedRoute({
 
   if (requireVerified && !isVerified) {
     return <Navigate to="/verify-email" replace />
+  }
+
+  // If the route requires onboarding and they haven't completed it, or they are not approved
+  if (requireOnboarded && isAuthenticated) {
+    if (!user?.registration_number || !user?.is_approved) {
+      // Don't redirect if we're already trying to go to onboarding
+      if (location.pathname !== '/onboarding') {
+        return <Navigate to="/onboarding" replace />
+      }
+    }
   }
 
   if (requireRole && !hasRole(requireRole)) {

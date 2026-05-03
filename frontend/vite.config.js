@@ -14,6 +14,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/static': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 })

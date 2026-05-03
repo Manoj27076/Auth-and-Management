@@ -11,10 +11,10 @@ export default function VerifyEmailPage() {
   const { user, refreshUser, isVerified } = useAuth()
   const navigate = useNavigate()
 
-  const [otp,       setOtp]       = useState('')
-  const [loading,   setLoading]   = useState(false)
-  const [error,     setError]     = useState('')
-  const [success,   setSuccess]   = useState(false)
+  const [otp, setOtp] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
   const [countdown, setCountdown] = useState(0)
 
   // Already verified → go to profile
@@ -58,9 +58,7 @@ export default function VerifyEmailPage() {
     }
   }, [])
 
-  const maskedEmail = user?.email
-    ? user.email.replace(/(.{2}).+(@.+)/, '$1•••$2')
-    : '•••@•••.com'
+  const displayId = user?.registration_number || 'your registered email'
 
   if (success) {
     return (
@@ -88,7 +86,7 @@ export default function VerifyEmailPage() {
           <h1>Verify Your Email</h1>
           <p>
             We sent a 6-digit code to{' '}
-            <strong className="verify-email">{maskedEmail}</strong>
+            <strong className="verify-email">{displayId}</strong>
           </p>
           <p className="verify-expiry">The code expires in 15 minutes.</p>
         </div>
@@ -142,7 +140,7 @@ export default function VerifyEmailPage() {
         <div className="divider" />
         <p className="verify-tip">
           Check your spam folder if you didn't receive the email.{' '}
-          Make sure <strong>{user?.email}</strong> is correct.
+          Make sure <strong>{displayId}</strong> is correct.
         </p>
       </div>
     </div>

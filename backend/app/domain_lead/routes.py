@@ -40,7 +40,7 @@ def get_dashboard(domain_id: int):
     if not check_access(domain, user):
         return jsonify({"error": "Unauthorized"}), 403
 
-    members = [{"id": u.id, "name": u.name, "email": u.email, "avatar_url": u.avatar_url} for u in domain.users]
+    members = [{"id": u.id, "name": u.name, "registration_number": u.registration_number, "avatar_url": u.avatar_url} for u in domain.users]
     
     # Sort so the lead is at the top
     members.sort(key=lambda m: 0 if m["id"] == domain.lead_id else 1)
@@ -66,14 +66,14 @@ def add_member(domain_id: int):
         return jsonify({"error": "Domain not found or unauthorized"}), 403
 
     data = request.get_json(silent=True) or {}
-    email = data.get("email", "").strip()
+    registration_number = data.get("registration_number", "").strip()
     
-    if not email:
-        return jsonify({"error": "Email is required"}), 400
+    if not registration_number:
+        return jsonify({"error": "Registration number is required"}), 400
 
-    target_user = User.query.filter_by(email=email).first()
+    target_user = User.query.filter_by(registration_number=registration_number).first()
     if not target_user:
-        return jsonify({"error": "User with this email not found"}), 404
+        return jsonify({"error": "User with this registration number not found"}), 404
 
     if domain in target_user.domains:
         return jsonify({"error": "User is already a member"}), 400
@@ -92,7 +92,7 @@ def add_member(domain_id: int):
         "member": {
             "id": target_user.id,
             "name": target_user.name,
-            "email": target_user.email,
+            "registration_number": target_user.registration_number,
             "avatar_url": target_user.avatar_url
         }
     }), 200

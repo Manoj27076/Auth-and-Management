@@ -32,11 +32,13 @@ def register_commands(app: Flask) -> None:
         # ── Domains ───────────────────────────────────────────────────────────
         domain_defs = [
             {"name": "Web Development",      "slug": "web-dev",      "description": "Frontend & Backend Development",    "icon": "🌐"},
-            {"name": "AI / Machine Learning", "slug": "ai-ml",        "description": "Artificial Intelligence & ML",      "icon": "🤖"},
+            {"name": "Artificial Intelligence", "slug": "ai",        "description": "Artificial Intelligence",           "icon": "🤖"},
+            {"name": "Data Analytics",        "slug": "data-analytics", "description": "Data Analysis & Visualization",  "icon": "📊"},
+            {"name": "Media",                 "slug": "media",        "description": "Media & Content Creation",         "icon": "📸"},
+            {"name": "PR",                    "slug": "pr",           "description": "Public Relations & Management",    "icon": "📢"},
+            {"name": "Design",                "slug": "design",       "description": "UI/UX & Graphic Design",           "icon": "🎨"},
             {"name": "Cybersecurity",         "slug": "cybersecurity","description": "Security Research & Ethical Hacking","icon": "🔒"},
-            {"name": "UI / UX Design",        "slug": "ui-ux",        "description": "Interface & Experience Design",     "icon": "🎨"},
             {"name": "Mobile Development",    "slug": "mobile-dev",   "description": "iOS & Android Development",         "icon": "📱"},
-            {"name": "Data Science",          "slug": "data-science", "description": "Data Analysis & Visualization",     "icon": "📊"},
             {"name": "Cloud & DevOps",        "slug": "cloud-devops", "description": "Cloud Infrastructure & CI/CD",      "icon": "☁️"},
             {"name": "Blockchain",            "slug": "blockchain",   "description": "Web3 & Distributed Systems",        "icon": "⛓️"},
             {"name": "Game Development",      "slug": "game-dev",     "description": "Unity, Godot & Game Design",        "icon": "🎮"},
